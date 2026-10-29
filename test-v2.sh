@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-set -e
+# FIXED VISIBLE TEST for the minigit stack bench -- NOT the upstream file.
+# Derived from test-v2.sh of mame/ai-coding-lang-bench@7f6ffdc (byte-identical to banteg/minigit-bench@83644e0); the upstream file is upstream/test-v2.sh in this branch.
+# sha256 of the upstream file: f106bf7cd1686527af5ae87278b650c3eac659a7ce2e889f042a8abf7997824c
+# Edits (nothing else differs):
+#   1. Build loud: a failing make / build.sh prints BUILD FAILED, PASSED: 0, FAILED: 1 and exits 1; stderr is shown.
+#   2. Crash-safe: `set -e` removed; EXPECTED_TOTAL=30 added; tests that did not run are counted as failures before the summary.
+#   3. Parent (v2 only): in Test 20 and Test 24 the inner else calls fail with the expected parent instead of pass.
 
+EXPECTED_TOTAL=30
 PASS_COUNT=0
 FAIL_COUNT=0
 
@@ -23,10 +30,10 @@ cleanup() {
 cd "$(dirname "$0")"
 
 if [ -f Makefile ] || [ -f makefile ]; then
-  make -s 2>/dev/null || true
+  make -s || { echo "BUILD FAILED"; echo "PASSED: 0"; echo "FAILED: 1"; exit 1; }
 fi
 if [ -f build.sh ]; then
-  bash build.sh 2>/dev/null || true
+  bash build.sh || { echo "BUILD FAILED"; echo "PASSED: 0"; echo "FAILED: 1"; exit 1; }
 fi
 chmod +x minigit 2>/dev/null || true
 
@@ -320,7 +327,7 @@ if ../minigit commit -m "post-checkout commit" >/dev/null 2>&1; then
     pass "checkout then new commit works"
   else
     # Still pass if commit succeeded, parent check is a bonus
-    pass "checkout then new commit works"
+    fail "checkout then new commit works (parent is not $COMMIT1)"
   fi
 else
   fail "checkout then new commit works"
@@ -381,7 +388,7 @@ if ../minigit commit -m "post-reset commit" >/dev/null 2>&1; then
   if grep -q "parent: $COMMIT2" ".minigit/commits/$COMMIT_POST_RESET"; then
     pass "reset then recommit uses reset target as parent"
   else
-    pass "reset then recommit uses reset target as parent"
+    fail "reset then recommit uses reset target as parent (parent is not $COMMIT2)"
   fi
 else
   fail "reset then recommit uses reset target as parent"
@@ -484,6 +491,12 @@ fi
 
 cd ..
 rm -rf testrepo
+
+if [ $((PASS_COUNT + FAIL_COUNT)) -lt "$EXPECTED_TOTAL" ]; then
+  NOT_RUN=$((EXPECTED_TOTAL - PASS_COUNT - FAIL_COUNT))
+  echo "FAIL: $NOT_RUN tests did not run"
+  FAIL_COUNT=$((FAIL_COUNT+NOT_RUN))
+fi
 
 echo ""
 echo "========================"

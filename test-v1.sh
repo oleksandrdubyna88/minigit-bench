@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-set -e
+# FIXED VISIBLE TEST for the minigit stack bench -- NOT the upstream file.
+# Derived from test-v1.sh of mame/ai-coding-lang-bench@7f6ffdc (byte-identical to banteg/minigit-bench@83644e0); the upstream file is upstream/test-v1.sh in this branch.
+# sha256 of the upstream file: b7ae57d6ecfb30480f0d63a093b17069eead1dd3782ad38b18cf7d3a110f10e6
+# Edits (nothing else differs):
+#   1. Build loud: a failing make / build.sh prints BUILD FAILED, PASSED: 0, FAILED: 1 and exits 1; stderr is shown.
+#   2. Crash-safe: `set -e` removed; EXPECTED_TOTAL=11 added; tests that did not run are counted as failures before the summary.
 
+EXPECTED_TOTAL=11
 PASS_COUNT=0
 FAIL_COUNT=0
 
@@ -23,10 +29,10 @@ cleanup() {
 cd "$(dirname "$0")"
 
 if [ -f Makefile ] || [ -f makefile ]; then
-  make -s 2>/dev/null || true
+  make -s || { echo "BUILD FAILED"; echo "PASSED: 0"; echo "FAILED: 1"; exit 1; }
 fi
 if [ -f build.sh ]; then
-  bash build.sh 2>/dev/null || true
+  bash build.sh || { echo "BUILD FAILED"; echo "PASSED: 0"; echo "FAILED: 1"; exit 1; }
 fi
 chmod +x minigit 2>/dev/null || true
 
@@ -205,6 +211,12 @@ fi
 
 cd ..
 rm -rf testrepo
+
+if [ $((PASS_COUNT + FAIL_COUNT)) -lt "$EXPECTED_TOTAL" ]; then
+  NOT_RUN=$((EXPECTED_TOTAL - PASS_COUNT - FAIL_COUNT))
+  echo "FAIL: $NOT_RUN tests did not run"
+  FAIL_COUNT=$((FAIL_COUNT+NOT_RUN))
+fi
 
 echo ""
 echo "========================"
